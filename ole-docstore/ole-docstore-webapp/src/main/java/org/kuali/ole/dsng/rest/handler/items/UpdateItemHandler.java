@@ -62,6 +62,8 @@ public class UpdateItemHandler extends Handler {
                             if (null != dataMapping) {
                                 processOverlay(exchange, dataMapping, itemRecord);
                             }
+                            if(itemRecord.getBarCode().endsWith("x"))
+                                itemRecord.setBarCode(itemRecord.getBarCode().toUpperCase());
                             itemRecords.add(itemRecord);
                         }
                     } catch (Exception e) {

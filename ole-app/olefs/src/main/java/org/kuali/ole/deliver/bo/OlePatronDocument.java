@@ -4,7 +4,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.kuali.ole.OLEConstants;
 import org.kuali.ole.deliver.api.*;
-import org.kuali.ole.deliver.service.ParameterValueResolver;
+import org.kuali.ole.deliver.util.ItemInfoUtil;
 import org.kuali.ole.docstore.engine.service.storage.rdbms.pojo.ItemRecord;
 import org.kuali.rice.kim.api.KimConstants;
 import org.kuali.rice.kim.api.identity.IdentityService;
@@ -22,12 +22,14 @@ import org.kuali.rice.kim.impl.identity.entity.EntityBo;
 import org.kuali.rice.kim.impl.identity.name.EntityNameBo;
 import org.kuali.rice.kim.impl.identity.phone.EntityPhoneBo;
 import org.kuali.rice.kim.impl.identity.type.EntityTypeContactInfoBo;
+import org.kuali.rice.krad.bo.BusinessObject;
 import org.kuali.rice.krad.bo.PersistableBusinessObject;
 import org.kuali.rice.krad.bo.PersistableBusinessObjectBase;
 import org.kuali.rice.krad.service.BusinessObjectService;
 import org.kuali.rice.krad.service.KRADServiceLocator;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -1627,7 +1629,7 @@ public class OlePatronDocument extends PersistableBusinessObjectBase implements 
     }
 
     public int getRequestedItemRecordsCount() {
-        return requestedItemRecordsCount;
+        return getOleDeliverRequestBos().size();
     }
 
     public void setRequestedItemRecordsCount(int requestedItemRecordsCount) {
@@ -1840,15 +1842,13 @@ public class OlePatronDocument extends PersistableBusinessObjectBase implements 
 
     public int getLoanedItemsCountByItemType(String itemType) {
         Integer itemCount = 0;
-        List<ItemRecord> itemRecords = getItemRecords();
-        if (CollectionUtils.isNotEmpty(itemRecords)) {
-            Boolean includeTowardsLoanCount = ParameterValueResolver.getInstance().getParameterAsBoolean(OLEConstants.APPL_ID_OLE, OLEConstants
-                    .DLVR_NMSPC, OLEConstants.DLVR_CMPNT, OLEConstants.CR_ITEMS_COUNT_TOWARD_LOANED_ITEMS_COUNT);
-            for (ItemRecord itemRecord : itemRecords) {
-                if (itemRecord != null && itemRecord.getItemTypeRecord().getCode().equalsIgnoreCase(itemType)
-                        && (!itemRecord.getClaimsReturnedFlag() || (itemRecord.getClaimsReturnedFlag() && includeTowardsLoanCount))) {
+        List<OleLoanDocument> oleLoanDocuments = getOleLoanDocuments();
+        for (Iterator<OleLoanDocument> iterator = oleLoanDocuments.iterator(); iterator.hasNext(); ) {
+            OleLoanDocument oleLoanDocument = iterator.next();
+            String itemId = oleLoanDocument.getItemId();
+            String itemTypeCode = getItemTypeFromItemId(itemId);
+            if (itemTypeCode.equalsIgnoreCase(itemType)) {
                 itemCount = itemCount + 1;
-                }
             }
         }
         return itemCount;
@@ -1906,7 +1906,7 @@ public class OlePatronDocument extends PersistableBusinessObjectBase implements 
         if(CollectionUtils.isNotEmpty(feeTypeList)){
             for (Iterator<FeeType> iterator = feeTypeList.iterator(); iterator.hasNext(); ) {
                 FeeType patronFeeType =  iterator.next();
-                if (patronFeeType.getOleFeeType().getFeeTypeCode().equalsIgnoreCase(feeType) && !patronFeeType.getOlePaymentStatus().getPaymentStatusCode().equals(OLEConstants.SUSPENDED)) {
+                if(patronFeeType.getOleFeeType().getFeeTypeCode().equalsIgnoreCase(feeType)){
                     feeAmount = feeAmount.add(patronFeeType.getBalFeeAmount().bigDecimalValue());
                 }
             }
@@ -1975,7 +1975,11 @@ public class OlePatronDocument extends PersistableBusinessObjectBase implements 
             OleLoanDocument oleLoanDocument = iterator.next();
             if (oleLoanDocument.getLoanDueDate() != null) {
                 Integer timeDiff = new Integer(getTimeDiff(oleLoanDocument.getLoanDueDate(), new Date()));
-                if (timeDiff > days && recallRequestExists(oleLoanDocument)) {
+                boolean recallExists = recallRequestExists(oleLoanDocument);
+                if (days!=0 && timeDiff > days && recallExists) {
+                    return true;
+                }
+                if(oleLoanDocument.getLoanDueDate().before(new Date()) && recallExists){
                     return true;
                 }
             }
@@ -1989,8 +1993,9 @@ public class OlePatronDocument extends PersistableBusinessObjectBase implements 
         List<OleDeliverRequestBo> oleDeliverRequestBos = (List<OleDeliverRequestBo>) KRADServiceLocator.getBusinessObjectService().findMatching(OleDeliverRequestBo.class, itemMap);
         for (Iterator<OleDeliverRequestBo> iterator = oleDeliverRequestBos.iterator(); iterator.hasNext(); ) {
             OleDeliverRequestBo oleDeliverRequestBo = iterator.next();
-            if(oleDeliverRequestBo.getOleDeliverRequestType().getRequestTypeCode().contains("Recall")){
+            if(oleDeliverRequestBo.getOleDeliverRequestType().getRequestTypeCode().equals("Recall/Hold Request")){
                 return true;
+
             }
         }
         return false;
@@ -1998,7 +2003,7 @@ public class OlePatronDocument extends PersistableBusinessObjectBase implements 
 
     public String getTimeDiff(Date dateOne, Date dateTwo) {
         String diff = "";
-        long timeDiff = dateTwo.getTime() - dateOne.getTime();
+        long timeDiff = dateTwo.getTime()-dateOne.getTime();
         diff = String.format("%d", TimeUnit.MILLISECONDS.toDays(timeDiff),
                 -TimeUnit.HOURS.toDays(timeDiff));
         return diff;
@@ -2036,39 +2041,37 @@ public class OlePatronDocument extends PersistableBusinessObjectBase implements 
         return managedLists;
     }
 
-    public int getTotalOverdueLoanedItemsCount() {
+    public int getTotalOverdueLoanedItemsCount(){
         int overdueCount = 0;
-        SimpleDateFormat date = new SimpleDateFormat(OLEConstants.CHECK_IN_DATE_TIME_FORMAT);
-        List<ItemRecord> itemRecords = getItemRecords();
-        if (CollectionUtils.isNotEmpty(itemRecords)) {
-            Boolean includeTowardsLoanCount = ParameterValueResolver.getInstance().getParameterAsBoolean(OLEConstants.APPL_ID_OLE, OLEConstants
-                    .DLVR_NMSPC, OLEConstants.DLVR_CMPNT, OLEConstants.CR_ITEMS_COUNT_TOWARD_LOANED_ITEMS_COUNT);
-            for (ItemRecord itemRecord : itemRecords) {
-                try {
-                    //checking overdue and claims returned flag
-                    if (itemRecord.getDueDateTime() != null && itemRecord.getDueDateTime().before(date.parse(date.format(new Date())))
-                            && (!itemRecord.getClaimsReturnedFlag() || (itemRecord.getClaimsReturnedFlag() && includeTowardsLoanCount))) {
-                        overdueCount++;
-                    }
-                } catch (ParseException e) {
-                    LOG.info(e.getMessage());
+        for(OleLoanDocument oleLoanDocument : oleLoanDocuments){
+            //checking overdue
+            if(oleLoanDocument.getLoanDueDate()!=null) {
+                if (oleLoanDocument.getLoanDueDate().before(new Date())) {
+                    overdueCount++;
                 }
             }
         }
         return overdueCount;
     }
 
-    private List<ItemRecord> getItemRecords() {
-        List<ItemRecord> itemRecords = new ArrayList<>();
-        Set<String> itemIds = new HashSet<>();
-        for (OleLoanDocument oleLoanDocument : oleLoanDocuments) {
-            itemIds.add(oleLoanDocument.getItemId());
+    public boolean isRequestedPatron(String barcode){
+        for(OleDeliverRequestBo oleDeliverRequestBo : oleDeliverRequestBos){
+            if(oleDeliverRequestBo.getItemId().equalsIgnoreCase(barcode)){
+                return true;
+            }
         }
-        if (CollectionUtils.isNotEmpty(itemIds)) {
-            HashMap<String, Object> map = new HashMap<>();
-            map.put("barCode", itemIds);
-            itemRecords = (List<ItemRecord>) getBusinessObjectService().findMatching(ItemRecord.class, map);
+        return false;
+    }
+
+    public String getLoanedPatronBorrowerType(String itemBarcode){
+        String borrowerType = null;
+        if(itemBarcode!=null) {
+            ItemRecord itemRecord = ItemInfoUtil.getInstance().getItemRecordByBarcode(itemBarcode);
+            Map<String,String> olePatronMap = new HashMap<>();
+            olePatronMap.put("olePatronId",itemRecord.getCurrentBorrower());
+            OlePatronDocument oleLoanPatronDocument = getBusinessObjectService().findByPrimaryKey(OlePatronDocument.class, olePatronMap);
+            borrowerType = oleLoanPatronDocument.getBorrowerTypeCode();
         }
-        return itemRecords;
+        return borrowerType;
     }
 }

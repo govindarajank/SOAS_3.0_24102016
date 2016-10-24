@@ -196,7 +196,7 @@ public abstract class CheckinBaseController extends CircUtilController {
     }
 
     public DroolsResponse preValidations(ItemRecord itemRecord, OLEForm oleForm) {
-        return preValidationForLost(itemRecord, oleForm);
+        return preValidationForDamaged(itemRecord, oleForm);
     }
 
     public DroolsResponse preValidationForLost(ItemRecord itemRecord, OLEForm oleForm) {
@@ -210,7 +210,8 @@ public abstract class CheckinBaseController extends CircUtilController {
         DroolsResponse droolsResponse;
         droolsResponse = checkForLostItemWithReplacemntBill(itemRecord);
         if (droolsResponse != null) return droolsResponse;
-        return preValidationForDamaged(itemRecord, oleForm);
+        OleLoanDocument oleLoanDocument = getOleLoanDocument(oleForm);
+        return processCheckinAfterPreValidation(itemRecord, oleForm,oleLoanDocument);
     }
 
     public DroolsResponse preValidationForDamaged(ItemRecord itemRecord, OLEForm oleForm) {
@@ -240,14 +241,13 @@ public abstract class CheckinBaseController extends CircUtilController {
         handleHoldExpiredRequest(itemRecord, oleForm);
         droolsResponse = processIfCheckinRequestExist(itemRecord, oleForm);
         if (droolsResponse != null) return droolsResponse;
-        OleLoanDocument oleLoanDocument = getOleLoanDocument(oleForm);
-        return processCheckinAfterPreValidation(itemRecord, oleForm, oleLoanDocument);
+        return preValidationForLost(itemRecord, oleForm);
     }
 
 
     public DroolsResponse processCheckinAfterPreValidation(ItemRecord itemRecord, OLEForm oleForm, OleLoanDocument loanDocument) {
         DroolsResponse droolsResponse;
-
+        String billNumber="";
         OleCirculationDesk oleCirculationDesk = getCircDeskLocationResolver().getOleCirculationDesk(getSelectedCirculationDesk(oleForm));
         OleItemRecordForCirc oleItemRecordForCirc = ItemInfoUtil.getInstance().getOleItemRecordForCirc(itemRecord, oleCirculationDesk);
         oleItemRecordForCirc.setOperatorCircLocation(oleCirculationDesk);
@@ -302,17 +302,7 @@ public abstract class CheckinBaseController extends CircUtilController {
                 oleItemRecordForCirc.setItemRecord((ItemRecord)getDroolsExchange(oleForm).getContext().get("itemRecord"));
                 updateItemStatusAndCircCount(oleItemRecordForCirc);
                 emailToPatronForOnHoldStatus();
-                String billNumber = null;
-                if (!(claimsReturnedFlag && isItemFoundInLibrary(oleForm))){
-                    billNumber = generateBillPayment(getSelectedCirculationDesk(oleForm), loanDocument, checkinDate, loanDocument.getLoanDueDate());
-                }
-                if (claimsReturnedFlag && oleItemRecordForCirc.getItemStatusRecord() != null && OLEConstants.ITEM_STATUS_LOST.equalsIgnoreCase(oleItemRecordForCirc.getItemStatusRecord().getCode())) {
-                    processClaimsReturnedAndLostItem(oleForm, loanDocument, checkinDate);
-                } else if (claimsReturnedFlag) {
-                    processClaimsReturnedItem(oleForm, loanDocument, billNumber);
-                } else if (oleItemRecordForCirc.getItemStatusRecord() != null && OLEConstants.ITEM_STATUS_LOST.equalsIgnoreCase(oleItemRecordForCirc.getItemStatusRecord().getCode())) {
-                    processLostItem(getOperatorId(oleForm), loanDocument, false);
-                }
+                billNumber = generateBillPayment(getSelectedCirculationDesk(oleForm), loanDocument, checkinDate, loanDocument.getLoanDueDate());
             } catch (Exception e) {
                 LOG.error(e.getStackTrace());
             }
@@ -338,9 +328,11 @@ public abstract class CheckinBaseController extends CircUtilController {
             } else {
                 if (!ruleMatched(droolsResponse)) {
                     droolsResponse.getErrorMessage().setErrorMessage("No checkin rule found!");
-                    droolsResponse.getErrorMessage().setErrorCode(DroolsConstants.GENERAL_MESSAGE_FLAG);
-                    return droolsResponse;
+                }else{
+                   droolsResponse.getErrorMessage().getErrorMessage();
                 }
+                droolsResponse.getErrorMessage().setErrorCode(DroolsConstants.GENERAL_MESSAGE_FLAG);
+                return droolsResponse;
             }
         }
 
@@ -348,7 +340,7 @@ public abstract class CheckinBaseController extends CircUtilController {
 
         handleRecentlyReturnedRecord(oleItemRecordForCirc, updateRecentlyReturnedTable);
 
-        updateCheckedInItemList(oleForm, itemRecord.getCheckInNote(), oleItemRecordForCirc, oleItemSearch, olePatronDocument);
+        updateCheckedInItemList(oleForm, itemRecord.getCheckInNote(), oleItemRecordForCirc, oleItemSearch, olePatronDocument, billNumber);
 
         handleOnHoldRequestIfExists(oleItemRecordForCirc);
 
@@ -463,7 +455,11 @@ public abstract class CheckinBaseController extends CircUtilController {
         if (null != prioritizedRequest) {
             DroolsResponse droolsResponse = new DroolsResponse();
             droolsResponse.addErrorMessageCode(DroolsConstants.CHECKIN_REQUEST_EXITS_FOR_THIS_ITEM);
-            droolsResponse.addErrorMessage("Request already exist for this item. <br/><br/> Do you want to checkin this item?.");
+            String errorMessage = "Request already exist for this item. <br/><br/> Do you want to checkin this item?.";
+            if(itemRecord.getItemStatusRecord()!=null && itemRecord.getItemStatusRecord().getCode().equalsIgnoreCase(OLEConstants.ITEM_STATUS_LOST)) {
+                errorMessage = errorMessage + "\n Item is marked as lost and/or replacement fee has been billed.Item should only be returned if item has been found.";
+            }
+            droolsResponse.addErrorMessage(errorMessage);
             return droolsResponse;
         }
         return null;
@@ -518,7 +514,7 @@ public abstract class CheckinBaseController extends CircUtilController {
             DroolsResponse droolsResponse = new DroolsResponse();
             droolsResponse.addErrorMessageCode(DroolsConstants.ITEM_MISSING_PIECE);
             droolsResponse.addErrorMessage(OLEConstants.VERIFY_PIECES + itemRecord.getNumberOfPieces() + OLEConstants.PIECES_RETURNED + OLEConstants.BREAK + "Total No of Pieces :      "
-                    + itemRecord.getNumberOfPieces() + OLEConstants.BREAK + "Description Of Pieces : " + (StringUtils.isNotBlank(itemRecord.getDescriptionOfPieces()) ? itemRecord.getDescriptionOfPieces() : "") + OLEConstants.BREAK + "No of missing Pieces : " + (itemRecord.getMissingPiecesCount() != null ? itemRecord.getMissingPiecesCount() : "0"));
+                    + itemRecord.getNumberOfPieces() + OLEConstants.BREAK +"Description Of Pieces : " + (StringUtils.isNotBlank(itemRecord.getDescriptionOfPieces()) ? itemRecord.getDescriptionOfPieces() : "") + OLEConstants.BREAK + "No of missing Pieces : " + (itemRecord.getMissingPiecesCount() != null ? itemRecord.getMissingPiecesCount() : "0"));
             return droolsResponse;
         }
         return null;
@@ -583,13 +579,12 @@ public abstract class CheckinBaseController extends CircUtilController {
         }
         return null;
     }
-
     private DroolsResponse checkForLostItem(ItemRecord itemRecord) {
-        String itemStatus = itemRecord.getItemStatusRecord().getCode();
-        if (StringUtils.isNotBlank(itemStatus) && itemStatus.equals(OLEConstants.ITEM_STATUS_LOST)) {
+        int status=Integer.parseInt(itemRecord.getItemStatusId());
+        if(itemRecord.getItemStatusRecord()!=null && itemRecord.getItemStatusRecord().getCode().equalsIgnoreCase(OLEConstants.ITEM_STATUS_LOST)){
             DroolsResponse droolsResponse = new DroolsResponse();
-            droolsResponse.addErrorMessageCode(DroolsConstants.ITEM_LOST);
-            droolsResponse.addErrorMessage("Item status is 'lost', return item?");
+            droolsResponse.addErrorMessage("Item is marked as lost and/or replacement fee has been billed.Item should only be returned if item has been found.");
+            droolsResponse.addErrorMessageCode(OLEConstants.ITEM_STATUS_LOST);
             return droolsResponse;
         }
         return null;
@@ -701,7 +696,7 @@ public abstract class CheckinBaseController extends CircUtilController {
 
     private List<String> getRequestTypes() {
         List<String> requestTypes = new ArrayList<>();
-        String requestTypeParameter = getParameterValueResolver().getParameter(OLEConstants.APPL_ID_OLE, OLEConstants
+        String requestTypeParameter = ParameterValueResolver.getInstance().getParameter(OLEConstants.APPL_ID_OLE, OLEConstants
                 .DLVR_NMSPC, OLEConstants.DLVR_CMPNT, OLEConstants.ON_HOLD_NOTICE_REQUEST_TYPE);
         if (StringUtils.isNotBlank(requestTypeParameter)) {
             StringTokenizer stringTokenizer = new StringTokenizer(requestTypeParameter,";");
@@ -829,7 +824,7 @@ public abstract class CheckinBaseController extends CircUtilController {
         return false;
     }
 
-    private void updateCheckedInItemList(OLEForm oleForm, String checkinNote, OleItemRecordForCirc oleItemRecordForCirc, OleItemSearch oleItemSearch, OlePatronDocument olePatronDocument) {
+    private void updateCheckedInItemList(OLEForm oleForm, String checkinNote, OleItemRecordForCirc oleItemRecordForCirc, OleItemSearch oleItemSearch, OlePatronDocument olePatronDocument, String billNumber) {
         CheckedInItem checkedInItem = new CheckedInItem();
         SimpleDateFormat dateFormat = new SimpleDateFormat(RiceConstants.SIMPLE_DATE_FORMAT_FOR_DATE + " " + RiceConstants.SIMPLE_DATE_FORMAT_FOR_TIME);
         checkedInItem.setCheckinNote(checkinNote);
@@ -859,7 +854,9 @@ public abstract class CheckinBaseController extends CircUtilController {
         checkedInItem.setPatronId((olePatronDocument != null) ? olePatronDocument.getOlePatronId() : "");
         checkedInItem.setPatronBarcode((olePatronDocument != null) ? olePatronDocument.getBarcode() : "");
         checkedInItem.setBorrowerType((olePatronDocument != null) ? olePatronDocument.getBorrowerTypeName() : "");
-        checkedInItem.setBillName(getBillName(olePatronDocument, oleItemSearch.getItemBarCode()));
+        if(StringUtils.isNotBlank(billNumber)) {
+            checkedInItem.setBillName(getBillNumber(olePatronDocument, oleItemSearch.getItemBarCode(), billNumber));
+        }
         checkedInItem.setItemType(oleItemSearch.getItemType());
         checkedInItem.setItemForCircRecord(oleItemRecordForCirc);
 
@@ -890,7 +887,23 @@ public abstract class CheckinBaseController extends CircUtilController {
         return null;
     }
 
-    public void updateLoanDocument(OleLoanDocument loanDocument, OleItemSearch oleItemSearch, ItemRecord itemRecord) throws Exception {
+    private String getBillNumber(OlePatronDocument olePatronDocument, String itemBarcode, String billNumber) {
+        if (null != olePatronDocument) {
+            List<PatronBillPayment> patronBillPayments = olePatronDocument.getPatronBillPayments();
+            for (Iterator<PatronBillPayment> iterator = patronBillPayments.iterator(); iterator.hasNext(); ) {
+                PatronBillPayment patronBillPayment = iterator.next();
+                for (Iterator<FeeType> patronBillPaymentIterator = patronBillPayment.getFeeType().iterator(); patronBillPaymentIterator.hasNext(); ) {
+                    FeeType feeType = patronBillPaymentIterator.next();
+                    if (null != feeType.getBillNumber() && feeType.getBillNumber().equalsIgnoreCase(billNumber)) {
+                        return feeType.getFeeAmount()+"";
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private void updateLoanDocument(OleLoanDocument loanDocument, OleItemSearch oleItemSearch, ItemRecord itemRecord) throws Exception {
         createCirculationHistoryAndTemporaryHistoryRecords(loanDocument, oleItemSearch, itemRecord);
         getBusinessObjectService().delete(loanDocument);
     }
@@ -961,6 +974,16 @@ public abstract class CheckinBaseController extends CircUtilController {
     }
 
 
+    public OleLoanDocument getLoanDocument(String itemBarcode) {
+        HashMap<String, Object> criteriaMap = new HashMap<>();
+        criteriaMap.put("itemId", itemBarcode);
+        List<OleLoanDocument> oleLoanDocuments = (List<OleLoanDocument>) getBusinessObjectService().findMatching(OleLoanDocument.class, criteriaMap);
+        if (!CollectionUtils.isEmpty(oleLoanDocuments)) {
+            return oleLoanDocuments.get(0);
+        }
+        return null;
+    }
+
     private void createCirculationHistoryAndTemporaryHistoryRecords(OleLoanDocument oleLoanDocument, OleItemSearch oleItemSearch, ItemRecord itemRecord) throws Exception {
         try {
             OlePatronDocument olePatronDocument = oleLoanDocument.getOlePatron();
@@ -968,23 +991,24 @@ public abstract class CheckinBaseController extends CircUtilController {
             criteriaMap.put("loanId",oleLoanDocument.getLoanId());
             List<OleCirculationHistory> circulationHistoryRecords = (List<OleCirculationHistory>) getBusinessObjectService().findMatching(OleCirculationHistory.class,criteriaMap);
             if(circulationHistoryRecords.size()>0){
-            OleCirculationHistory oleCirculationHistory =  circulationHistoryRecords.get(0);
-            if(GlobalVariables.getUserSession()!=null && GlobalVariables.getUserSession().getPrincipalId()!=null){
-                oleCirculationHistory.setCheckInOperatorId(GlobalVariables.getUserSession().getPrincipalId());
-            }
-            if(oleLoanDocument.isOverrideCheckInTime()){
-              oleCirculationHistory.setCheckInDate(new Timestamp(System.currentTimeMillis()));
-              oleCirculationHistory.setOverrideCheckInDateTime(oleLoanDocument.getCheckInDate());
-             }else{
-            oleCirculationHistory.setCheckInDate(oleLoanDocument.getCheckInDate() != null ? oleLoanDocument.getCheckInDate() : new Timestamp(System.currentTimeMillis()));
-            }
+                OleCirculationHistory oleCirculationHistory =  circulationHistoryRecords.get(0);
+                if(GlobalVariables.getUserSession()!=null && GlobalVariables.getUserSession().getPrincipalId()!=null){
+                    oleCirculationHistory.setCheckInOperatorId(GlobalVariables.getUserSession().getPrincipalId());
+                }
+                if(oleLoanDocument.isOverrideCheckInTime()){
+                  oleCirculationHistory.setCheckInDate(new Timestamp(System.currentTimeMillis()));
+                  oleCirculationHistory.setOverrideCheckInDateTime(oleLoanDocument.getCheckInDate());
+                }else{
+                oleCirculationHistory.setCheckInDate(oleLoanDocument.getCheckInDate() != null ? oleLoanDocument.getCheckInDate() : new Timestamp(System.currentTimeMillis()));
+                }
                 oleCirculationHistory.setDueDate(oleLoanDocument.getLoanDueDate());
-            oleCirculationHistory.setNumberOfOverdueNoticesSent(oleLoanDocument.getNumberOfOverdueNoticesSent());
-            oleCirculationHistory.setNumberOfRenewals(oleLoanDocument.getNumberOfRenewals());
-            oleCirculationHistory.setRepaymentFeePatronBillId(oleLoanDocument.getRepaymentFeePatronBillId());
-            oleCirculationHistory.setPastDueDate(oleLoanDocument.getPastDueDate());
-            oleCirculationHistory.setOverdueNoticeDate(oleLoanDocument.getOverDueNoticeDate());
-            OleCirculationHistory savedCircHistoryRecord = getBusinessObjectService().save(oleCirculationHistory);
+                oleCirculationHistory.setNumberOfOverdueNoticesSent(oleLoanDocument.getNumberOfOverdueNoticesSent());
+                oleCirculationHistory.setNumberOfRenewals(oleLoanDocument.getNumberOfRenewals());
+                oleCirculationHistory.setRepaymentFeePatronBillId(oleLoanDocument.getRepaymentFeePatronBillId());
+                oleCirculationHistory.setPastDueDate(oleLoanDocument.getPastDueDate());
+                oleCirculationHistory.setOverdueNoticeDate(oleLoanDocument.getOverDueNoticeDate());
+                oleCirculationHistory.setItemTypeId(itemRecord.getItemTypeId());
+                OleCirculationHistory savedCircHistoryRecord = getBusinessObjectService().save(oleCirculationHistory);
             }
             OleTemporaryCirculationHistory oleTemporaryCirculationHistory = new OleTemporaryCirculationHistory();
             oleTemporaryCirculationHistory.setCirculationLocationId(oleLoanDocument.getCirculationLocationId());

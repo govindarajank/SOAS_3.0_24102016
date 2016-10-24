@@ -1653,7 +1653,6 @@
             <bean parent="Uif-DropdownControl" p:cssClasses="fixed-size-200-select"/>
         </property>
     </bean>
-
     <bean id="constant-datatype-holdings" parent="Uif-InputField" p:propertyName="attributeName" p:label="Select Field Name" p:render="@{#line.dataType eq 'Holdings'}" p:readOnly="@{!#isAddLine}">
         <property name="optionsFinder">
             <bean class="org.kuali.ole.batch.keyvalue.OLEBatchProcessHoldingSourceFieldValueFinder" />

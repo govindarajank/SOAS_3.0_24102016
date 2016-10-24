@@ -15,6 +15,7 @@ import org.kuali.ole.deliver.calendar.service.DateUtil;
 import org.kuali.ole.deliver.controller.checkout.CheckoutValidationController;
 import org.kuali.ole.deliver.controller.checkout.CircUtilController;
 import org.kuali.ole.deliver.controller.renew.RenewController;
+import org.kuali.ole.deliver.form.CheckinForm;
 import org.kuali.ole.deliver.form.CircForm;
 import org.kuali.ole.deliver.service.LostNoticesExecutor;
 import org.kuali.ole.deliver.service.OleLoanDocumentPlatformAwareDao;
@@ -28,6 +29,7 @@ import org.kuali.ole.utility.OleStopWatch;
 import org.kuali.rice.core.api.config.property.ConfigContext;
 import org.kuali.rice.core.api.datetime.DateTimeService;
 import org.kuali.rice.krad.service.BusinessObjectService;
+import org.kuali.rice.krad.util.GlobalVariables;
 import org.kuali.rice.krad.web.form.UifFormBase;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BindingResult;
@@ -311,6 +313,28 @@ public class CircController extends CheckoutValidationController {
         List<OleLoanDocument> selectedLoanDocumentList = getSelectedLoanDocumentList(circForm);
         deleteClaimsReturnForItem(circForm, selectedLoanDocumentList);
         return getUIFModelAndView(form);
+    }
+
+    @RequestMapping(params = "methodToCall=openCheckInDialog")
+    public ModelAndView openCheckInDialog(@ModelAttribute("KualiForm") UifFormBase form, BindingResult result,
+                                           HttpServletRequest request, HttpServletResponse response) throws Exception {
+        CircForm circForm = (CircForm) form;
+        String url = ConfigContext.getCurrentContextConfig().getProperty("ole.fs.url.base") + "/ole-kr-krad/checkincontroller?viewId=checkinView&methodToCall=returnInLoan";
+        showIFrameDialog(url, circForm, "if (jq.trim(jq('#barcodeFieldSection_control').val()) === '') {\n" +
+                "        jq('#barcodeFieldSection_control').focus();\n" +
+                "    } else {\n" +
+                "\tjq('#checkoutItem_control').focus();\n" +
+                "}");
+        return getUIFModelAndView(form);
+    }
+
+    @RequestMapping(params = "methodToCall=loanInReturn")
+    public ModelAndView loanInReturn(@ModelAttribute("KualiForm") UifFormBase form, BindingResult result,
+                                           HttpServletRequest request, HttpServletResponse response) throws Exception {
+        CircForm circForm = (CircForm) form;
+        circForm.setCheckin(true);
+        start(circForm,result,request,response);
+        return getUIFModelAndView(circForm);
     }
 
     @RequestMapping(params = "methodToCall=openAlterDueDateDialog")
@@ -650,7 +674,6 @@ public class CircController extends CheckoutValidationController {
         return getUIFModelAndView(form);
     }
 
-
     @RequestMapping(params = "methodToCall=renew")
     public ModelAndView renew(@ModelAttribute("KualiForm") UifFormBase form, BindingResult result,
                               HttpServletRequest request, HttpServletResponse response) throws Exception {
@@ -695,7 +718,15 @@ public class CircController extends CheckoutValidationController {
             circForm.setErrorMessage(errorMessage);
 
             if (CollectionUtils.isNotEmpty(circForm.getLoanDocumentsForRenew())) {
-                showDialogAndRunCustomScript("renewOverrideDialog", circForm, "jq('.renewItemCBClass').removeAttr('checked');jq('.renewItemCBClass').removeAttr('checked');");
+
+                if(selectedLoanDocumentList.get(0).getItemStatus()!=null && selectedLoanDocumentList.get(0).getItemStatus().equalsIgnoreCase("LOST")){
+                    droolsResponse.getErrorMessage().setErrorMessage("Item is Lost.Hence It cannot be renewed.");
+                    circForm.setErrorMessage(droolsResponse.getErrorMessage());
+                    showDialogAndRunCustomScript("generalInfoDialog", circForm, "jq('.loanedItemCBClass').removeAttr('checked');jq('.loaningItemCBClass').removeAttr('checked');");
+                    circForm.setLoanDocumentsForRenew(new ArrayList<OleLoanDocument>());
+                }else {
+                    showDialogAndRunCustomScript("renewOverrideDialog", circForm, "jq('.renewItemCBClass').removeAttr('checked');jq('.renewItemCBClass').removeAttr('checked');");
+                }
             } else if (StringUtils.isNotBlank(messageContentForRenew)) {
                 showDialogAndRunCustomScript("generalInfoWithRefreshDialog", circForm, "jq('.loanedItemCBClass').removeAttr('checked');jq('.loaningItemCBClass').removeAttr('checked');");
                 circForm.setLoanDocumentsForRenew(new ArrayList<OleLoanDocument>());
@@ -893,12 +924,12 @@ public class CircController extends CheckoutValidationController {
 
     private void renewItem(CircForm circForm, HttpServletRequest request, HttpServletResponse response) {
         OleLoanDocument currentLoanDocument = getCheckoutUIController(circForm.getFormKey()).getCurrentLoanDocument(circForm.getItemBarcode());
-        OleItemRecordForCirc oleItemRecordForCirc = (OleItemRecordForCirc) circForm.getDroolsExchange().getFromContext("oleItemRecordForCirc");
-        if (oleItemRecordForCirc != null && oleItemRecordForCirc.getItemStatusRecord() != null) {
-            currentLoanDocument.setItemStatus(oleItemRecordForCirc.getItemStatusRecord().getCode());
+        List<OleLoanDocument> selectedLoanDocumentList = new ArrayList<>();
+        if (null != currentLoanDocument) {
+            selectedLoanDocumentList.add(currentLoanDocument);
         }
-        if (currentLoanDocument != null) {
-            DroolsResponse droolsResponse = getRenewController().renewItems(Arrays.asList(currentLoanDocument), circForm.getPatronDocument());
+        if (CollectionUtils.isNotEmpty(selectedLoanDocumentList)) {
+            DroolsResponse droolsResponse = getRenewController().renewItems(selectedLoanDocumentList, circForm.getPatronDocument());
 
             String messageContentForRenew = getRenewController().analyzeRenewedLoanDocuments(circForm, droolsResponse);
 

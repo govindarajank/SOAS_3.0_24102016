@@ -147,7 +147,7 @@ public class PurchaseOrderEdi {
             lineCount++;
             String orderDate = "";
 
-            SimpleDateFormat sdf = new SimpleDateFormat(RiceConstants.SIMPLE_DATE_FORMAT_FOR_DATE, Locale.getDefault());
+            SimpleDateFormat sdf = PurApDateFormatUtils.getSimpleDateFormat(PurapConstants.NamedDateFormats.KUALI_SIMPLE_DATE_FORMAT_2);
             if (po.getPurchaseOrderInitialOpenTimestamp() != null) {
                 orderDate = sdf.format(po.getPurchaseOrderInitialOpenTimestamp());
             } else {
@@ -155,7 +155,7 @@ public class PurchaseOrderEdi {
                 orderDate = sdf.format(getDateTimeService().getCurrentSqlDate());
             }
 
-            SimpleDateFormat formatter = new SimpleDateFormat(RiceConstants.SIMPLE_DATE_FORMAT_FOR_DATE);
+            SimpleDateFormat formatter = new SimpleDateFormat("MM-dd-yyyy");
             Date date = formatter.parse(orderDate);
             String formattedDate = formatter.format(date);
 

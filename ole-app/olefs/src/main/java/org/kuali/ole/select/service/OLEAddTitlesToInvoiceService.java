@@ -146,6 +146,7 @@ public class OLEAddTitlesToInvoiceService {
 
 
         int index = 0;
+        //for (String poitmId : purchaseOrderItemIds) {
             for (String purchaseOrderItemId : purchaseOrderItemIds) {
                 HashMap itemMap = new HashMap<>();
                 itemMap.put("itemIdentifier", purchaseOrderItemId.toString());

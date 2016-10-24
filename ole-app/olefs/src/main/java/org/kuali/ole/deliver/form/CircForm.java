@@ -114,6 +114,8 @@ public class CircForm extends OLEForm {
 
     private String createNewPatronLink;
 
+    private boolean checkin = false;
+
     public String getPageSize() {
         return pageSize;
     }
@@ -565,6 +567,14 @@ public class CircForm extends OLEForm {
 
     public void setCreateBillUrl(String createBillUrl) {
         this.createBillUrl = createBillUrl;
+    }
+
+    public boolean isCheckin() {
+        return checkin;
+    }
+
+    public void setCheckin(boolean checkin) {
+        this.checkin = checkin;
     }
     
     public String getCreateNewPatronLink() {

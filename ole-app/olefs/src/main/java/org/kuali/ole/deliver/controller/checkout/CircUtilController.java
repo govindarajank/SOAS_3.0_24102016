@@ -4,11 +4,14 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.kuali.ole.OLEConstants;
+import org.kuali.ole.OLEParameterConstants;
 import org.kuali.ole.deliver.OleLoanDocumentsFromSolrBuilder;
 import org.kuali.ole.deliver.PatronBillGenerator;
 import org.kuali.ole.deliver.bo.*;
 import org.kuali.ole.deliver.controller.drools.RuleExecutor;
 import org.kuali.ole.deliver.controller.notices.*;
+import org.kuali.ole.deliver.service.CircDeskLocationResolver;
+import org.kuali.ole.deliver.service.ParameterValueResolver;
 import org.kuali.ole.deliver.notice.bo.OleNoticeContentConfigurationBo;
 import org.kuali.ole.deliver.notice.executors.LoanNoticesExecutor;
 import org.kuali.ole.deliver.service.*;
@@ -46,7 +49,7 @@ public class CircUtilController extends RuleExecutor {
     private DocstoreClientLocator docstoreClientLocator;
     private SimpleDateFormat dateFormatForDocstoreDueDate;
     private OleLoanDocumentsFromSolrBuilder oleLoanDocumentsFromSolrBuilder;
-    private ParameterValueResolver parameterValueResolver;
+    private ParameterValueResolver parameterResolverInstance;
 
     public List<OLEDeliverNotice> processNotices(OleLoanDocument currentLoanDocument, ItemRecord itemRecord, NoticeInfo noticeInfo) {
         List<OLEDeliverNotice> deliverNotices = new ArrayList<>();
@@ -508,18 +511,55 @@ public class CircUtilController extends RuleExecutor {
         noticeProcessors.add(new RecallCourtseyNoticeDueDateProcessor());
         return noticeProcessors;
     }
-
+    private OlePaymentStatus getPaymentStatus(String paymentStatus) {
+        LOG.debug("Inside the getPaymentStatus method");
+        Map statusMap = new HashMap();
+        statusMap.put("paymentStatusCode", paymentStatus);
+        List<OlePaymentStatus> olePaymentStatusList = (List<OlePaymentStatus>) getBusinessObjectService().findMatching(OlePaymentStatus.class, statusMap);
+        return olePaymentStatusList != null && olePaymentStatusList.size() > 0 ? olePaymentStatusList.get(0) : null;
+    }
+    public ParameterValueResolver getParameterResolverInstance() {
+        if (null == parameterResolverInstance) {
+            parameterResolverInstance = ParameterValueResolver.getInstance();
+        }
+        return parameterResolverInstance;
+    }
     public String generateBillPayment(String selectedCirculationDesk, OleLoanDocument loanDocument, Timestamp customDueDateMap, Timestamp dueDate) {
         String billPayment = null;
+        OlePaymentStatus forgivePaymentStatus = getPaymentStatus(OLEConstants.FORGIVEN);
         ItemFineRate itemFineRate = loanDocument.getItemFineRate();
-        if (null == itemFineRate.getFineRate() || null == itemFineRate.getMaxFine() || null == itemFineRate.getInterval()) {
+        List<FeeType> olePatronFeeTypes=loanDocument.getOlePatron().getPatronFeeTypes();
+        for(FeeType olePatronfeeType : olePatronFeeTypes){
+            if(olePatronfeeType.getFeeType().equals("2") && loanDocument.getItemId().equals(olePatronfeeType.getItemBarcode())) {
+                if(olePatronfeeType.getPaymentStatusCode().equalsIgnoreCase("PAY_OUTSTN")) {
+                    OleItemLevelBillPayment oleItemLevelBillPayment = new OleItemLevelBillPayment();
+                    oleItemLevelBillPayment.setPaymentDate(new Timestamp(System.currentTimeMillis()));
+                    oleItemLevelBillPayment.setAmount(olePatronfeeType.getBalFeeAmount());
+                    oleItemLevelBillPayment.setCreatedUser(loanDocument.getLoanOperatorId());
+                    oleItemLevelBillPayment.setPaymentMode(OLEConstants.FORGIVE);
+                    oleItemLevelBillPayment.setNote("Note" + loanDocument.getCheckInDate());
+                    List<OleItemLevelBillPayment> oleItemLevelBillPayments = CollectionUtils.isNotEmpty(olePatronfeeType.getItemLevelBillPaymentList()) ? olePatronfeeType.getItemLevelBillPaymentList() : new ArrayList<OleItemLevelBillPayment>();
+                    oleItemLevelBillPayments.add(oleItemLevelBillPayment);
+                    olePatronfeeType.setItemLevelBillPaymentList(oleItemLevelBillPayments);
+                    olePatronfeeType.setPaymentStatus(forgivePaymentStatus.getPaymentStatusId());
+                    olePatronfeeType.setBalFeeAmount(new KualiDecimal(0));
+                    getBusinessObjectService().save(olePatronfeeType);
+                    /*String adminServiceFeeParameter = getParameterResolverInstance().getParameter(OLEConstants.APPL_ID_OLE, OLEConstants.DLVR_NMSPC, OLEConstants.DLVR_CMPNT, OLEParameterConstants.ADMIN_SER_FEE);
+                    if (StringUtils.isNotBlank(adminServiceFeeParameter)) {
+                        Double adminSerFee = Double.valueOf(adminServiceFeeParameter);
+                        generateServiceBill(loanDocument, adminSerFee, dueDate);
+                    }*/
+                }
+            }
+        }
+        if (null == itemFineRate.getFineRate() || null == itemFineRate.getInterval()) {
             LOG.error("No fine rule found");
         } else {
             if (null != loanDocument.getReplacementBill() && loanDocument.getReplacementBill().compareTo(BigDecimal.ZERO) > 0) {
                 billPayment = generateReplacementBill(loanDocument, dueDate);
             } else {
                 Double overdueFine = new FineDateTimeUtil().calculateOverdueFine(selectedCirculationDesk, dueDate, customDueDateMap, itemFineRate);
-                overdueFine = overdueFine >= itemFineRate.getMaxFine() ? itemFineRate.getMaxFine() : overdueFine;
+                //overdueFine = overdueFine >= itemFineRate.getMaxFine() ? itemFineRate.getMaxFine() : overdueFine;
                 if (null != overdueFine && overdueFine > 0) {
                     billPayment = generateOverdueBill(loanDocument, overdueFine, dueDate);
                 }
@@ -532,6 +572,16 @@ public class CircUtilController extends RuleExecutor {
         String billPayment = null;
         try {
             billPayment = getPatronBillGenerator().generatePatronBillPayment(loanDocument, OLEConstants.OVERDUE_FINE, overdueFine, dueDate);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return billPayment;
+    }
+
+    private String generateServiceBill(OleLoanDocument loanDocument, Double serviceFine, Timestamp dueDate) {
+        String billPayment = null;
+        try {
+            billPayment = getPatronBillGenerator().generatePatronBillPayment(loanDocument, OLEConstants.SERVICE_FEE, serviceFine, dueDate);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -612,9 +662,9 @@ public class CircUtilController extends RuleExecutor {
         } else {
             oleNoticeContentConfigurationBo = new OleNoticeContentConfigurationBo();
             oleNoticeContentConfigurationBo.setNoticeType(noticeType);
-            oleNoticeContentConfigurationBo.setNoticeTitle(getParameterValueResolver().getParameter(OLEConstants.APPL_ID, OLEConstants
+            oleNoticeContentConfigurationBo.setNoticeTitle(getParameterResolverInstance().getParameter(OLEConstants.APPL_ID, OLEConstants
                     .DLVR_NMSPC, OLEConstants.DLVR_CMPNT, noticeTitle));
-            oleNoticeContentConfigurationBo.setNoticeBody(getParameterValueResolver().getParameter(OLEConstants.APPL_ID_OLE, OLEConstants
+            oleNoticeContentConfigurationBo.setNoticeBody(getParameterResolverInstance().getParameter(OLEConstants.APPL_ID_OLE, OLEConstants
                     .DLVR_NMSPC, OLEConstants.DLVR_CMPNT, noticeContent));
             oleNoticeContentConfigurationBo.setNoticeFooterBody("");
         }
@@ -715,24 +765,13 @@ public class CircUtilController extends RuleExecutor {
     }
 
     public void processLostItem(String operatorId, OleLoanDocument loanDocument, boolean isRenew) {
-        String forgiveLostFees = getParameterValueResolver().getParameter(OLEConstants.APPL_ID_OLE, OLEConstants
+        String forgiveLostFees = getParameterResolverInstance().getParameter(OLEConstants.APPL_ID_OLE, OLEConstants
                 .DLVR_NMSPC, OLEConstants.DLVR_CMPNT, OLEConstants.FORGIVE_LOST_FEES);
         List<String> feeTypeCodes = new ArrayList<>();
         if (org.apache.commons.lang3.StringUtils.isNotBlank(forgiveLostFees)) {
             feeTypeCodes = Arrays.asList(forgiveLostFees.split(","));
         }
         updateFees(loanDocument, operatorId, feeTypeCodes, "Item Returned on ", isRenew);
-    }
-
-    public ParameterValueResolver getParameterValueResolver() {
-        if (null == parameterValueResolver) {
-            parameterValueResolver = ParameterValueResolver.getInstance();
-        }
-        return parameterValueResolver;
-    }
-
-    public void setParameterValueResolver(ParameterValueResolver parameterValueResolver) {
-        this.parameterValueResolver = parameterValueResolver;
     }
 
 }
