@@ -1265,7 +1265,7 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
         for (int i = 0; i < orderQueue.size(); i++) {
             if (orderQueue.get(i).equals(OLEConstants.OleDeliverRequest.RECALL) && recallList.size() > 0) {
                 for (int x = 0; x < recallList.size(); x++) {
-                    oleDeliverRequestBo1 = (OleDeliverRequestBo) ObjectUtils.deepCopy(recallList.get(x));
+                    oleDeliverRequestBo1 = deepCopyOfRequesBo(recallList, x);
                     oleDeliverRequestBo1.setBorrowerQueuePosition(this.queuePosition + 1);
                     this.queuePosition = this.queuePosition + 1;
                     finalList.add(oleDeliverRequestBo1);
@@ -1274,7 +1274,7 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             }
             if (orderQueue.get(i).equals(OLEConstants.OleDeliverRequest.HOLD) && holdList.size() > 0) {
                 for (int x = 0; x < holdList.size(); x++) {
-                    oleDeliverRequestBo1 = (OleDeliverRequestBo) ObjectUtils.deepCopy(holdList.get(x));
+                    oleDeliverRequestBo1 = deepCopyOfRequesBo(holdList, x);
                     oleDeliverRequestBo1.setBorrowerQueuePosition(this.queuePosition + 1);
                     this.queuePosition = this.queuePosition + 1;
                     finalList.add(oleDeliverRequestBo1);
@@ -1283,7 +1283,7 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             }
             if (orderQueue.get(i).equals(OLEConstants.OleDeliverRequest.PAGE) && pageList.size() > 0) {
                 for (int x = 0; x < pageList.size(); x++) {
-                    oleDeliverRequestBo1 = (OleDeliverRequestBo) ObjectUtils.deepCopy(pageList.get(x));
+                    oleDeliverRequestBo1 = deepCopyOfRequesBo(pageList, x);
                     oleDeliverRequestBo1.setBorrowerQueuePosition(this.queuePosition + 1);
                     this.queuePosition = this.queuePosition + 1;
                     finalList.add(oleDeliverRequestBo1);
@@ -1291,7 +1291,7 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             }
             if (orderQueue.get(i).equals(OLEConstants.OleDeliverRequest.RECALL) && recallHoldList.size() > 0) {
                 for (int x = 0; x < recallHoldList.size(); x++) {
-                    oleDeliverRequestBo1 = (OleDeliverRequestBo) ObjectUtils.deepCopy(recallHoldList.get(x));
+                    oleDeliverRequestBo1 = deepCopyOfRequesBo(recallHoldList, x);
                     oleDeliverRequestBo1.setBorrowerQueuePosition(this.queuePosition + 1);
                     this.queuePosition = this.queuePosition + 1;
                     finalList.add(oleDeliverRequestBo1);
@@ -1300,7 +1300,7 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             }
             if (orderQueue.get(i).equals(OLEConstants.OleDeliverRequest.HOLD) && holdHoldList.size() > 0) {
                 for (int x = 0; x < holdHoldList.size(); x++) {
-                    oleDeliverRequestBo1 = (OleDeliverRequestBo) ObjectUtils.deepCopy(holdHoldList.get(x));
+                    oleDeliverRequestBo1 = deepCopyOfRequesBo(holdHoldList, x);
                     oleDeliverRequestBo1.setBorrowerQueuePosition(this.queuePosition + 1);
                     this.queuePosition = this.queuePosition + 1;
                     finalList.add(oleDeliverRequestBo1);
@@ -1309,7 +1309,7 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             }
             if (orderQueue.get(i).equals(OLEConstants.OleDeliverRequest.PAGE) && pageHoldList.size() > 0) {
                 for (int x = 0; x < pageHoldList.size(); x++) {
-                    oleDeliverRequestBo1 = (OleDeliverRequestBo) ObjectUtils.deepCopy(pageHoldList.get(x));
+                    oleDeliverRequestBo1 = deepCopyOfRequesBo(pageHoldList, x);
                     oleDeliverRequestBo1.setBorrowerQueuePosition(this.queuePosition + 1);
                     this.queuePosition = this.queuePosition + 1;
                     finalList.add(oleDeliverRequestBo1);
@@ -1317,7 +1317,7 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             }
             if (orderQueue.get(i).equals(OLEConstants.OleDeliverRequest.COPY) && copyList.size() > 0) {
                 for (int x = 0; x < copyList.size(); x++) {
-                    oleDeliverRequestBo1 = (OleDeliverRequestBo) ObjectUtils.deepCopy(copyList.get(x));
+                    oleDeliverRequestBo1 = deepCopyOfRequesBo(copyList, x);
                     oleDeliverRequestBo1.setBorrowerQueuePosition(this.queuePosition + 1);
                     this.queuePosition = this.queuePosition + 1;
                     finalList.add(oleDeliverRequestBo1);
@@ -1326,7 +1326,7 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             }
             if (orderQueue.get(i).equals(OLEConstants.OleDeliverRequest.INTRANSIT) && inTransitList.size() > 0) {
                 for (int x = 0; x < inTransitList.size(); x++) {
-                    oleDeliverRequestBo1 = (OleDeliverRequestBo) ObjectUtils.deepCopy(inTransitList.get(x));
+                    oleDeliverRequestBo1 = deepCopyOfRequesBo(inTransitList, x);
                     oleDeliverRequestBo1.setBorrowerQueuePosition(this.queuePosition + 1);
                     this.queuePosition = this.queuePosition + 1;
                     finalList.add(oleDeliverRequestBo1);
@@ -1335,7 +1335,7 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             }
             if (orderQueue.get(i).equals(OLEConstants.OleDeliverRequest.ASR_REQUEST) && asrList.size() > 0) {
                 for (int x = 0; x < asrList.size(); x++) {
-                    oleDeliverRequestBo1 = (OleDeliverRequestBo) ObjectUtils.deepCopy(asrList.get(x));
+                    oleDeliverRequestBo1 = deepCopyOfRequesBo(asrList, x);
                     oleDeliverRequestBo1.setBorrowerQueuePosition(this.queuePosition + 1);
                     this.queuePosition = this.queuePosition + 1;
                     finalList.add(oleDeliverRequestBo1);
@@ -1353,6 +1353,14 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
         this.queuePosition = 0;
         oleDeliverRequestBo.setRequestId(KRADServiceLocator.getSequenceAccessorService().getNextAvailableSequenceNumber("OLE_DLVR_RQST_S").toString());
         return oleDeliverRequestBo;
+    }
+
+    private OleDeliverRequestBo deepCopyOfRequesBo(List<OleDeliverRequestBo> recallHoldList, int x) {
+        OleDeliverRequestBo oleDeliverRequestBo1;
+        OleDeliverRequestBo deliverRequestBo = recallHoldList.get(x);
+        deliverRequestBo.getOlePatron().setBusinessObjectService(null); // to avoid deep copy exception
+        oleDeliverRequestBo1 = (OleDeliverRequestBo) ObjectUtils.deepCopy(deliverRequestBo);
+        return oleDeliverRequestBo1;
     }
 
     private void setRequestQueuePositionForOnholdItem(List<OleDeliverRequestBo> finalList, String itemStatus, List<OleDeliverRequestBo> recallHoldList, List<OleDeliverRequestBo> holdHoldList, List<OleDeliverRequestBo> pageHoldList, List<OleDeliverRequestBo> asrList) {

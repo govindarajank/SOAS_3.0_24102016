@@ -56,7 +56,11 @@ public class PatronBillGenerator {
         feeType.setPaymentStatus(olePaymentStatus.getPaymentStatusId());
         feeType.setBalFeeAmount(new KualiDecimal(fineAmount));
         feeType.setFeeSource(OLEConstants.SYSTEM);
-        feeType.setDueDate(dueDate);
+        if(oleLoanDocument.getLoanDueDate()!=null){
+            feeType.setDueDate(oleLoanDocument.getLoanDueDate());
+        }else {
+            feeType.setDueDate(dueDate);
+        }
         if(oleLoanDocument.isOverrideCheckInTime()){
             feeType.setOverrideCheckInDate(oleLoanDocument.getCheckInDate());
             feeType.setCheckInDate(new Timestamp(System.currentTimeMillis()));
