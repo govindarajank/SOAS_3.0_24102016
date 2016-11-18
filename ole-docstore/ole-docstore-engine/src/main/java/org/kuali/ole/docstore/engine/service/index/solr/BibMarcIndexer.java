@@ -1114,25 +1114,29 @@ public class BibMarcIndexer extends DocstoreSolrIndexService implements Docstore
 
     private String generateLinkFiledValue(String value, List<DataField> dataFields) {
         StringBuilder linkFieldValue = new StringBuilder();
-        if (value.indexOf("-") > 0) {
-            String[] dataValues = value.split("-");
-            String tag = dataValues[0];
-            int position = Integer.parseInt(dataValues[1]);
-            List<DataField> linkDataFields = new ArrayList<>();
-            for (DataField dataField : dataFields) {
-                if (dataField.getTag().equalsIgnoreCase(tag)) {
-                    linkDataFields.add(dataField);
+        try {
+            if (value.indexOf("-") > 0) {
+                String[] dataValues = value.split("-");
+                String tag = dataValues[0];
+                int position = Integer.parseInt(dataValues[1]);
+                List<DataField> linkDataFields = new ArrayList<>();
+                for (DataField dataField : dataFields) {
+                    if (dataField.getTag().equalsIgnoreCase(tag)) {
+                        linkDataFields.add(dataField);
+                    }
                 }
-            }
 
-            if (CollectionUtils.isNotEmpty(linkDataFields) && linkDataFields.size() > position - 1) {
-                DataField linkDataField = linkDataFields.get(position - 1);
-                for (SubField subField : linkDataField.getSubFields()) {
-                    if (!subField.getCode().equalsIgnoreCase("6")) {
-                        linkFieldValue.append(subField.getValue());
+                if (CollectionUtils.isNotEmpty(linkDataFields) && linkDataFields.size() > position - 1) {
+                    DataField linkDataField = linkDataFields.get(position - 1);
+                    for (SubField subField : linkDataField.getSubFields()) {
+                        if (!subField.getCode().equalsIgnoreCase("6")) {
+                            linkFieldValue.append(subField.getValue());
+                        }
                     }
                 }
             }
+        }catch(Exception e){
+            e.getLocalizedMessage();
         }
         return linkFieldValue.toString();
     }

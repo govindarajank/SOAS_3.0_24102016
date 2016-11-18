@@ -845,7 +845,7 @@ batchProfileApp.controller('batchProfileController', ['$scope', '$http', functio
                     $scope.mainSectionPanel.profileName = data.profileName;
                     $scope.mainSectionPanel.profileDescription = data.description;
                     $scope.mainSectionPanel.orderType = data.orderType;
-                    //$scope.mainSectionPanel.batchProcessType = data.batchProcessType;
+                    $scope.mainSectionPanel.batchProcessType = data.batchProcessType;
                     $scope.mainSectionPanel.bibImportProfileForOrderImport = data.bibImportProfileForOrderImport;
                     $scope.mainSectionPanel.requisitionForTitlesOption = data.requisitionForTitlesOption;
                     $scope.mainSectionPanel.matchPointToUse = data.matchPointToUse;
