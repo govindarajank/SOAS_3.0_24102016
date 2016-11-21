@@ -114,7 +114,7 @@
                         <bean id="olePatronSave" parent="OlePatron-Uif-SaveAction" p:ajaxSubmit="false" p:render="@{#actionFlags[#Constants.KUALI_ACTION_CAN_SAVE]}" p:focusOnIdAfterSubmit="TOP" p:jumpToIdAfterSubmit="TOP"/>
                         <bean id="olePatronReload" parent="Uif-SecondaryActionButton" p:ajaxSubmit="false" p:methodToCall="reload" p:actionLabel="Reload"
                               p:render="@{#actionFlags[#Constants.KUALI_ACTION_CAN_RELOAD]}" p:focusOnIdAfterSubmit="TOP" p:jumpToIdAfterSubmit="TOP"/>
-                        <bean id="olePatronBlanketApprove" parent="Uif-SecondaryActionButton" p:ajaxSubmit="false" p:methodToCall="blanketApprove" p:actionLabel="Blanket Approve" p:performClientSideValidation="true"
+                        <bean id="olePatronBlanketApprove" parent="Uif-SecondaryActionButton" p:ajaxSubmit="false" p:methodToCall="route" p:actionLabel="Blanket Approve" p:performClientSideValidation="true"
                               p:render="@{#actionFlags[#Constants.KUALI_ACTION_CAN_BLANKET_APPROVE]}" p:focusOnIdAfterSubmit="TOP" p:jumpToIdAfterSubmit="TOP"/>
                         <bean id="olePatronApprove" parent="Uif-SecondaryActionButton" p:ajaxSubmit="false" p:methodToCall="approve" p:actionLabel="Approve"  p:performClientSideValidation="true"
                               p:render="@{#actionFlags[#Constants.KUALI_ACTION_CAN_APPROVE]}" p:focusOnIdAfterSubmit="TOP" p:jumpToIdAfterSubmit="TOP"/>
