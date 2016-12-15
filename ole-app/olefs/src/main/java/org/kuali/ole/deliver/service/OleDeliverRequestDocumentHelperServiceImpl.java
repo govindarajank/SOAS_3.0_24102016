@@ -765,7 +765,9 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
 
             sendOnHoldNoticeToNextRequestor(oleDeliverRequestBo, oleNoticeBos, itemMap);
 
-            if(oleDeliverRequestBo.getOperatorModifierName()!=null && !(oleDeliverRequestBo.getOperatorCreateName().equalsIgnoreCase(OLEConstants.VUFIND))){
+            if(oleDeliverRequestBo.getOperatorModifierName()!=null && (oleDeliverRequestBo.getOperatorModifierName().equalsIgnoreCase(OLEConstants.VUFIND))){
+                //Do nothing
+            }else{
                 sendCancelNotice(oleNoticeBos,oleDeliverRequestBo.getBorrowerQueuePosition().intValue());
             }
         } catch (Exception e) {
