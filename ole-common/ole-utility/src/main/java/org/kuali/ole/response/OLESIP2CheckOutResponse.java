@@ -83,9 +83,9 @@ public class OLESIP2CheckOutResponse extends OLESIP2Response {
                     OLESIP2Constants.PRINT_LINE_CODE + oleCheckOutItem.getMessage().replaceAll("<br/>", "")+ OLESIP2Constants.CHECK_OUT_SUCCESSFULLY);
         } else {
             checkOutResponseBuilder.append(OLESIP2Constants.SPLIT+
-                    OLESIP2Constants.SCREEN_MSG_CODE+ oleCheckOutItem.getMessage().replaceAll("<br/>", "")+ OLESIP2Constants.CHECK_OUT_FAILED);
+                    OLESIP2Constants.SCREEN_MSG_CODE+ OLESIP2Constants.CHECK_OUT_FAILED);
             checkOutResponseBuilder.append(OLESIP2Constants.SPLIT+
-                    OLESIP2Constants.PRINT_LINE_CODE + oleCheckOutItem.getMessage().replaceAll("<br/>", "")+ OLESIP2Constants.CHECK_OUT_FAILED);
+                    OLESIP2Constants.PRINT_LINE_CODE + OLESIP2Constants.CHECK_OUT_FAILED);
         }
         if (StringUtils.isNotBlank(sip2CheckOutRequestParser.getSequenceNum())) {
             checkOutResponseBuilder.append(OLESIP2Constants.SPLIT+
