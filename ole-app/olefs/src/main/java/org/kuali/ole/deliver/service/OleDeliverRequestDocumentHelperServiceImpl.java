@@ -739,6 +739,7 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             oleDeliverRequestBo.setOperatorModifierName(OLEConstants.VUFIND);
         }else {
             operatorId = GlobalVariables.getUserSession().getLoggedInUserPrincipalName();
+            oleDeliverRequestBo.setOperatorModifierName("soas-lis");
         }
         try {
             List<OleNoticeBo> oleNoticeBos = cancelRequestForItem(oleDeliverRequestBo.getItemUuid(), oleDeliverRequestBo.getBorrowerId());
@@ -766,8 +767,6 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             sendOnHoldNoticeToNextRequestor(oleDeliverRequestBo, oleNoticeBos, itemMap);
 
             if(oleDeliverRequestBo.getOperatorModifierName()!=null && (oleDeliverRequestBo.getOperatorModifierName().equalsIgnoreCase(OLEConstants.VUFIND))){
-                //Do nothing
-            }else{
                 sendCancelNotice(oleNoticeBos,oleDeliverRequestBo.getBorrowerQueuePosition().intValue());
             }
         } catch (Exception e) {
