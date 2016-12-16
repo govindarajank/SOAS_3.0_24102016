@@ -763,10 +763,9 @@ public class OleDeliverRequestDocumentHelperServiceImpl {
             asrHelperService.deleteASRTypeRequest(oleDeliverRequestBo.getRequestId());
 
 
-
             sendOnHoldNoticeToNextRequestor(oleDeliverRequestBo, oleNoticeBos, itemMap);
 
-            if(oleDeliverRequestBo.getOperatorModifierName()!=null && (oleDeliverRequestBo.getOperatorModifierName().equalsIgnoreCase(OLEConstants.VUFIND))){
+            if(oleDeliverRequestBo.getOperatorModifierName()!=null && !(oleDeliverRequestBo.getOperatorModifierName().equalsIgnoreCase(OLEConstants.VUFIND))){
                 sendCancelNotice(oleNoticeBos,oleDeliverRequestBo.getBorrowerQueuePosition().intValue());
             }
         } catch (Exception e) {
